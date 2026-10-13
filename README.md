@@ -1,34 +1,85 @@
-# DevOps Interview Task (Part 1): Containerize
+# DWP Container Task
 
-**This is a take-home task.** Please submit by the date given when the task was
-issued.
+A Flask application running with Gunicorn. The Dockerfile has been
+updated, with no changes to the files in `app/`.
 
-## Overview
+## Changes
 
-You are given a small web application (`app/`). A working `Dockerfile` is
-provided, but it was written quickly and does **not** follow container best
-practices. Your job is to refactor it into a production-quality image and push
-it to a container registry.
+- Python slim base image pinned to a digest.
+- Removed unnecessary system packages.
+- Dependencies installed before copying the application.
+- Application runs as a non-root user.
+- Added a health check for `/healthz`.
+- Logs sent to stdout and stderr.
+- Added `.dockerignore` to limit the build context.
 
-You do **not** need to modify the application code.
+## Build
 
-## What we provide
+Run from the repository root:
 
-Clone this repository into your local account.
-
-> **Do Not** fork this repository. Clone it and re-push it into your local account.
-
-The following is provided as part of this repository:
-
-```text
-Dockerfile            # a working but non-production Dockerfile — improve it
-app/
-  app.py              # a minimal Python Flask web app (do not modify)
-  requirements.txt    # the app's dependencies (do not modify)
+```sh
+docker build -t ghcr.io/dwpomeke/dwp-omeke:v1 .
 ```
 
-The application:
+## Run
 
--   Listens on the port given by the `PORT` environment variable (default `8080`).
--   Reads a `GREETING` environment variable used in its response.
--   Exposes `GET /`, `GET /healthz`, and `GET /info`.
+```sh
+docker run -d --name dwp-greeting -p 127.0.0.1:8080:8080 ghcr.io/dwpomeke/dwp-omeke:v1
+```
+
+Open these URLs:
+
+- http://localhost:8080/ — greeting
+- http://localhost:8080/healthz — health check
+- http://localhost:8080/info — application configuration
+
+## Configuration
+
+Environment variables can be passed using `docker run -e`.
+
+| Variable | Default |
+| --- | --- |
+| `PORT` | `8080` |
+| `WEB_CONCURRENCY` | `2` |
+| `GREETING` | `Hello from the sample app!` |
+
+## Checks
+
+Check the container status, logs and runtime user:
+
+```sh
+docker ps --filter name=dwp-greeting
+docker logs dwp-greeting
+docker exec dwp-greeting id
+```
+
+The runtime UID and GID should both be `10001`.
+
+Check container health:
+
+```sh
+docker inspect --format "{{.State.Health.Status}}" dwp-greeting
+```
+
+Expected result after startup: `healthy`.
+
+## Publish
+
+```sh
+docker login ghcr.io -u dwpomeke
+docker push ghcr.io/dwpomeke/dwp-omeke:v1
+```
+
+Set the package visibility to **Public**, then check anonymous access:
+
+```sh
+docker logout ghcr.io
+docker pull ghcr.io/dwpomeke/dwp-omeke:v1
+```
+
+## Clean up
+
+```sh
+docker stop dwp-greeting
+docker rm dwp-greeting
+```
